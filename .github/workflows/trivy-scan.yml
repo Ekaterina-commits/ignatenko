@@ -1,0 +1,45 @@
+name: Trivy Security Scan
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  trivy-scan:
+    name: Run Trivy scanner
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Полная история коммитов для точного анализа
+
+    - name: Setup Trivy
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'table'
+        exit-code: '1'
+        severity: 'CRITICAL,HIGH'
+        ignore-unfixed: true
+        security-checks: 'vuln'
+        output: 'trivy-results.sarif'
+        
+    - name: Upload SARIF results
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-results.sarif'
+        
+    - name: Check for critical vulnerabilities
+      if: failure()
+      run: |
+        echo "::error::Critical or high vulnerabilities detected!"
+        echo "Review the Trivy scan report in the Security tab"
+        exit 1
